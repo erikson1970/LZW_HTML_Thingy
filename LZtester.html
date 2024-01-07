@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+
+    <h1>The Window Object</h1>
+    <h2>The atob() Method</h2>
+
+    <p>The atob() method decodes a base-64 encoded string.</p>
+    <p>The atob() method is not supported in IE9 and earlier.</p>
+
+    <p id="demo"></p>
+
+    <script>
+        //LZW Compression/Decompression for Strings
+        var LZW = {
+            compress: function (uncompressed) {
+                "use strict";
+                // Build the dictionary.
+                var i,
+                    dictionary = {},
+                    c,
+                    wc,
+                    w = "",
+                    result = [],
+                    dictSize = 256;
+                for (i = 0; i < 256; i += 1) {
+                    dictionary[String.fromCharCode(i)] = i;
+                }
+
+                for (i = 0; i < uncompressed.length; i += 1) {
+                    c = uncompressed.charAt(i);
+                    wc = w + c;
+                    //Do not use dictionary[wc] because javascript arrays 
+                    //will return values for array['pop'], array['push'] etc
+                    // if (dictionary[wc]) {
+                    if (dictionary.hasOwnProperty(wc)) {
+                        w = wc;
+                    } else {
+                        result.push(dictionary[w]);
+                        // Add wc to the dictionary.
+                        dictionary[wc] = dictSize++;
+                        console.info("compress: i=" + i + "  WC:" + wc + " dictSize=" + dictSize);
+                        w = String(c);
+                    }
+                }
+
+                // Output the code for w.
+                if (w !== "") {
+                    result.push(dictionary[w]);
+                }
+                return result;
+            },
+
+
+            decompress: function (compressed) {
+                "use strict";
+                // Build the dictionary.
+                var i,
+                    dictionary = [],
+                    w,
+                    result,
+                    k,
+                    entry = "",
+                    dictSize = 256;
+                for (i = 0; i < 256; i += 1) {
+                    dictionary[i] = String.fromCharCode(i);
+                }
+
+                w = String.fromCharCode(compressed[0]);
+                result = w;
+                for (i = 1; i < compressed.length; i += 1) {
+                    k = compressed[i];
+                    if (dictionary[k]) {
+                        entry = dictionary[k];
+                    } else {
+                        if (k === dictSize) {
+                            entry = w + w.charAt(0);
+                        } else {
+                            return null;
+                        }
+                    }
+
+                    result += entry;
+
+                    // Add w+entry[0] to the dictionary.
+                    dictionary[dictSize++] = w + entry.charAt(0);
+
+                    w = entry;
+                }
+                return result;
+            },
+
+            convertArrayToChar: function (array) {
+                let result = '';
+                for (let i = 0; i < array.length; i++) {
+                    result += String.fromCharCode(array[i] & 0xFF, (array[i] >> 8) & 0xFF);
+                }
+                return result;
+            },
+
+            convertCharToArray: function (str) {
+                let result = [];
+                for (let i = 0; i < str.length; i += 2) {
+                    let charCode1 = str.charCodeAt(i);
+                    let charCode2 = str.charCodeAt(i + 1);
+                    let short = (charCode2 << 8) | charCode1;
+                    result.push(short);
+                }
+                return result;
+            },
+
+            convertArrayToCharFrame: function (array) {
+                let result = '';
+                let frame = '';
+                let preamble = 0;
+                let count = 0;
+                // let flag = 0;
+
+                for (let i = 0; i < array.length; i++) {
+
+                    let num = array[i];
+                    if (num <= 255) {
+                        frame += String.fromCharCode(num);
+                        //preamble |= (1 << count);
+                    } else {
+                        frame += String.fromCharCode(num & 0xFF, (num >> 8) & 0xFF);
+                        preamble |= (1 << count);
+                        //flag |= (1 << count);
+                    }
+
+                    count++;
+
+                    if (count === 12 || i === array.length - 1) {
+                        //                        frame += String.fromCharCode(preamble);
+                        preamble = preamble | (count << 12);
+                        result += String.fromCharCode((preamble >> 8) & 0x00ff) +
+                            String.fromCharCode(preamble & 0x00ff) + frame;
+                        // console.log("Array to Frame preamble=" + preamble.toString(16) +
+                        //     " count=" + count +
+                        //     " frame=" + frame + " index=" + i);
+
+                        frame = '';
+                        preamble = 0;
+                        count = 0;
+                    }
+
+                }
+
+                // if (count > 0) {
+                //     frame += String.fromCharCode(preamble);
+                //     result += frame;
+                // }
+
+                return result;
+            },
+
+            convertCharFrameToArray: function (str) {
+                let result = [];
+                let index = 0;
+
+                while (index < str.length) {
+                    let preamble = str.charCodeAt(index) << 8 | str.charCodeAt(index + 1);
+                    let count = preamble >> 12;
+                    let flag = preamble & 0x0fff;
+                    // console.log("Frame To Array: preamble=" + preamble + " count=" + count + " flag=" + flag + " index=" + index);
+                    index += 2;
+
+                    for (let i = 0; i < count; i++) {
+                        let num;
+                        if ((flag & (1 << i)) === 0) {
+                            num = str.charCodeAt(index);
+                            index++;
+                        } else {
+                            num = (str.charCodeAt(index + 1) << 8) | str.charCodeAt(index);
+                            index += 2;
+                        }
+                        result.push(num);
+                    }
+                }
+
+                return result;
+            },
+
+            getUniqueSortedCharacters: function (str) {
+                const uniqueCharacters = [...new Set(str)];
+                return uniqueCharacters.sort();
+            }
+
+
+        }; // For Test Purposes
+        let text = "TOBEORNOTTOBEORTOBEORNOT"
+        text = "This is Hello World! This is some real text<br>This is line two!!";
+        text = window.atob('TG9yZW0gaXBzdW0gZXN0IG5pYmggZHVpIGxvYm9ydGlzIG9ybmFyZSBkb2xvciB0dXJwaXMgZXQsIDxicj5tZXR1cyBmZXJtZW50dW0gY29udWJpYSBkb25lYyBpbXBlcmRpZXQgbGliZXJvIG9ybmFyZSBsaWd1bGEsIDxicj5wcmFlc2VudCBkb25lYyBuYW0gbGFjdXMgYSBsaXRvcmEgaW4gY3ViaWxpYS4gRXVpc21vZCBub3N0cmEgPGJyPmJpYmVuZHVtIGxpdG9yYSBkaWN0dW1zdCBwb3J0dGl0b3IgZXN0IGFjIG5pc2ksIGF1Y3RvciBlbmltIDxicj5saWd1bGEgcG90ZW50aSBzdXNwZW5kaXNzZSByaG9uY3VzIHR1cnBpcyBoYWMgdWx0cmljaWVzLCBldWlzbW9kPGJyPiBwb3N1ZXJlIHBvcnR0aXRvciBhbGlxdWFtIG1vbGVzdGllIGN1cmFiaXR1ciBmdXNjZS4gUHJpbWlzIDxicj4gbWFlY2VuYXMgYWVuZWFuIHBvcnR0aXRvciBldSBjb25zZWN0ZXR1ciB2dWxwdXRhdGUgdHVycGlzIHZlbCA8YnI+IGludGVnZXIgcGhhc2VsbHVzLCBmZXJtZW50dW0gbWF0dGlzIGltcGVyZGlldCBzZW0gbHVjdHVzIG1pIDxicj4gcHJldGl1bSBldGlhbSBuaXNsIHRlbGx1cyBjdWJpbGlhLCB2ZXN0aWJ1bHVtIHV0IGxhY2luaWEgPGJyPiBlbGVpZmVuZCBxdWlzcXVlIG1hc3NhIGVnZXN0YXMgbHVjdHVzIGNvbmd1ZS48YnI+PGJyPk9kaW8gbmV0dXMgdm9sdXRwYXQgbmVxdWUgaWQgY3VyYWJpdHVyIGZhbWVzIGVnZXQsIGFyY3UgPGJyPmltcGVyZGlldCB2YXJpdXMgZmVsaXMgc2FnaXR0aXMgZWxpdCBzaXQsIG1hdHRpcyBzYXBpZW4gdHJpc3RpcXVlIDxicj5jb25zZXF1YXQgaGFiaXRhc3NlIGFtZXQuIFRlbXB1cyBtYXR0aXMgdXJuYSBncmF2aWRhIGp1c3RvIGNvbnZhbGxpcyA8YnI+dXJuYSBpbXBlcmRpZXQgaGltZW5hZW9zIGZldWdpYXQgYWVuZWFuLCBqdXN0byBwaGFzZWxsdXMgaGFiaXRhbnQgPGJyPm1vbGxpcyB0b3J0b3IgZ3JhdmlkYSBuZWMgaW50ZXJkdW0uIE5pc2wgbmVjIHV0IHBvdGVudGkgaGltZW5hZW9zIDxicj5oZW5kcmVyaXQgdG9ydG9yLCB0cmlzdGlxdWUgY29uc2VjdGV0dXIgcG90ZW50aSBhcHRlbnQgYXVndWUgY29uc2VxdWF0LCA8YnI+bG9yZW0gbGVvIHNjZWxlcmlzcXVlIHRpbmNpZHVudCBkYXBpYnVzLiBPZGlvIGFjY3Vtc2FuIHRlbXBvciBhcHRlbnQgPGJyPm1hc3NhIHRvcnRvciBvZGlvIGVsZWlmZW5kIGxlbywgY29udmFsbGlzIGxpZ3VsYSBjdXJhZSByaG9uY3VzIGxhY2luaWEgPGJyPnRhY2l0aSBlZ2V0IHV0IHNvZGFsZXMsIGZhY2lsaXNpcyBzb2xsaWNpdHVkaW4gaGVuZHJlcml0IHNpdCBxdWFtIG5pYmggZXJhdC48YnI+');
+        text = window.atob('TG9yZW0gaXBzdW0gZXN0IG5pYmggZHVpIGxvYm9ydGlzIG9ybmFyZSBkb2xvciB0dXJwaXMgZXQsIDxicj5tZXR1cyBmZXJtZW50dW0gY29udWJpYSBkb25lYyBpbXBlcmRpZXQgbGliZXJvIG9ybmFyZSBsaWd1bGEsIDxicj5wcmFlc2VudCBkb25lYyBuYW0gbGFjdXMgYSBsaXRvcmEgaW4gY3ViaWxpYS4gRXVpc21vZCBub3N0cmEgPGJyPmJpYmVuZHVtIGxpdG9yYSBkaWN0dW1zdCBwb3J0dGl0b3IgZXN0IGFjIG5pc2ksIGF1Y3RvciBlbmltIDxicj5saWd1bGEgcG90ZW50aSBzdXNwZW5kaXNzZSByaG9uY3VzIHR1cnBpcyBoYWMgdWx0cmljaWVzLCBldWlzbW9kPGJyPiBwb3N1ZXJlIHBvcnR0aXRvciBhbGlxdWFtIG1vbGVzdGllIGN1cmFiaXR1ciBmdXNjZS4gUHJpbWlzIDxicj4gbWFlY2VuYXMgYWVuZWFuIHBvcnR0aXRvciBldSBjb25zZWN0ZXR1ciB2dWxwdXRhdGUgdHVycGlzIHZlbCA8YnI+IGludGVnZXIgcGhhc2VsbHVzLCBmZXJtZW50dW0gbWF0dGlzIGltcGVyZGlldCBzZW0gbHVjdHVzIG1pIDxicj4gcHJldGl1bSBldGlhbSBuaXNsIHRlbGx1cyBjdWJpbGlhLCB2ZXN0aWJ1bHVtIHV0IGxhY2luaWEgPGJyPiBlbGVpZmVuZCBxdWlzcXVlIG1hc3NhIGVnZXN0YXMgbHVjdHVzIGNvbmd1ZS48YnI+PGJyPk9kaW8gbmV0dXMgdm9sdXRwYXQgbmVxdWUgaWQgY3VyYWJpdHVyIGZhbWVzIGVnZXQsIGFyY3UgPGJyPmltcGVyZGlldCB2YXJpdXMgZmVsaXMgc2FnaXR0aXMgZWxpdCBzaXQsIG1hdHRpcyBzYXBpZW4gdHJpc3RpcXVlIDxicj5jb25zZXF1YXQgaGFiaXRhc3NlIGFtZXQuIFRlbXB1cyBtYXR0aXMgdXJuYSBncmF2aWRhIGp1c3RvIGNvbnZhbGxpcyA8YnI+dXJuYSBpbXBlcmRpZXQgaGltZW5hZW9zIGZldWdpYXQgYWVuZWFuLCBqdXN0byBwaGFzZWxsdXMgaGFiaXRhbnQgPGJyPm1vbGxpcyB0b3J0b3IgZ3JhdmlkYSBuZWMgaW50ZXJkdW0uIE5pc2wgbmVjIHV0IHBvdGVudGkgaGltZW5hZW9zIDxicj5oZW5kcmVyaXQgdG9ydG9yLCB0cmlzdGlxdWUgY29uc2VjdGV0dXIgcG90ZW50aSBhcHRlbnQgYXVndWUgY29uc2VxdWF0LCA8YnI+bG9yZW0gbGVvIHNjZWxlcmlzcXVlIHRpbmNpZHVudCBkYXBpYnVzLiBPZGlvIGFjY3Vtc2FuIHRlbXBvciBhcHRlbnQgPGJyPm1hc3NhIHRvcnRvciBvZGlvIGVsZWlmZW5kIGxlbywgY29udmFsbGlzIGxpZ3VsYSBjdXJhZSByaG9uY3VzIGxhY2luaWEgPGJyPnRhY2l0aSBlZ2V0IHV0IHNvZGFsZXMsIGZhY2lsaXNpcyBzb2xsaWNpdHVkaW4gaGVuZHJlcml0IHNpdCBxdWFtIG5pYmggZXJhdC48YnI+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8YnI+VGhlIHNjZW5hcmlvIGRlc2NyaWJlZCBieSBXZWxjaCdzIDE5ODQgcGFwZXJbMV0gZW5jb2RlcyBzZXF1ZW5jZXMgb2YgOC1iaXQgZGF0YSA8YnI+YXMgZml4ZWQtbGVuZ3RoIDEyLWJpdCBjb2Rlcy4gVGhlIGNvZGVzIGZyb20gMCB0byAyNTUgcmVwcmVzZW50IDEtY2hhcmFjdGVyIDxicj5zZXF1ZW5jZXMgY29uc2lzdGluZyBvZiB0aGUgY29ycmVzcG9uZGluZyA4LWJpdCBjaGFyYWN0ZXIsIGFuZCB0aGUgY29kZXMgMjU2IDxicj50aHJvdWdoIDQwOTUgYXJlIGNyZWF0ZWQgaW4gYSBkaWN0aW9uYXJ5IGZvciBzZXF1ZW5jZXMgZW5jb3VudGVyZWQgaW4gdGhlIGRhdGE8YnI+YXMgaXQgaXMgZW5jb2RlZC4gQXQgZWFjaCBzdGFnZSBpbiBjb21wcmVzc2lvbiwgaW5wdXQgYnl0ZXMgYXJlIGdhdGhlcmVkIGludG8gYSA8YnI+c2VxdWVuY2UgdW50aWwgdGhlIG5leHQgY2hhcmFjdGVyIHdvdWxkIG1ha2UgYSBzZXF1ZW5jZSB3aXRoIG5vIGNvZGUgPGJyPnlldCBpbiB0aGUgZGljdGlvbmFyeS4gVGhlIGNvZGUgZm9yIHRoZSBzZXF1ZW5jZSAod2l0aG91dCB0aGF0IGNoYXJhY3Rlcik8YnI+aXMgYWRkZWQgdG8gdGhlIG91dHB1dCwgYW5kIGEgbmV3IGNvZGUgKGZvciB0aGUgc2VxdWVuY2Ugd2l0aCB0aGF0IGNoYXJhY3RlcikgPGJyPmlzIGFkZGVkIHRvIHRoZSBkaWN0aW9uYXJ5Ljxicj48YnI+VGhlIGlkZWEgd2FzIHF1aWNrbHkgYWRhcHRlZCB0byBvdGhlciBzaXR1YXRpb25zLiBJbiBhbiBpbWFnZSBiYXNlZCBvbiBhIGNvbG9yIHRhYmxlLCA8YnI+Zm9yIGV4YW1wbGUsIHRoZSBuYXR1cmFsIGNoYXJhY3RlciBhbHBoYWJldCBpcyB0aGUgc2V0IG9mIGNvbG9yIHRhYmxlIGluZGV4ZXMsIGFuZCA8YnI+aW4gdGhlIDE5ODBzLCBtYW55IGltYWdlcyBoYWQgc21hbGwgY29sb3IgdGFibGVzIChvbiB0aGUgb3JkZXIgb2YgMTYgY29sb3JzKS4gRm9yIDxicj5zdWNoIGEgcmVkdWNlZCBhbHBoYWJldCwgdGhlIGZ1bGwgMTItYml0IGNvZGVzIHlpZWxkZWQgcG9vciBjb21wcmVzc2lvbiB1bmxlc3MgdGhlIDxicj5pbWFnZSB3YXMgbGFyZ2UsIHNvIHRoZSBpZGVhIG9mIGEgdmFyaWFibGUtd2lkdGggY29kZSB3YXMgaW50cm9kdWNlZDogY29kZXMgdHlwaWNhbGx5PGJyPnN0YXJ0IG9uZSBiaXQgd2lkZXIgdGhhbiB0aGUgc3ltYm9scyBiZWluZyBlbmNvZGVkLCBhbmQgYXMgZWFjaCBjb2RlIHNpemUgaXMgdXNlZCB1cCwgPGJyPnRoZSBjb2RlIHdpZHRoIGluY3JlYXNlcyBieSAxIGJpdCwgdXAgdG8gc29tZSBwcmVzY3JpYmVkIG1heGltdW0gKHR5cGljYWxseSAxMiBiaXRzKS48YnI+V2hlbiB0aGUgbWF4aW11bSBjb2RlIHZhbHVlIGlzIHJlYWNoZWQsIGVuY29kaW5nIHByb2NlZWRzIHVzaW5nIHRoZSBleGlzdGluZyB0YWJsZSwgYnV0IDxicj5uZXcgY29kZXMgYXJlIG5vdCBnZW5lcmF0ZWQgZm9yIGFkZGl0aW9uIHRvIHRoZSB0YWJsZS4gPGJyPg==')
+        let encoded = window.btoa(text);
+        let decoded = window.atob(encoded);
+
+
+        let comp = LZW.compress(text);
+        let compText = LZW.convertArrayToChar(comp);
+        let compTextFr = LZW.convertArrayToCharFrame(comp);
+        let compText64 = window.btoa(compText);
+        let compText64Fr = window.btoa(compTextFr);
+        let allChars = LZW.getUniqueSortedCharacters(decoded);
+        let decomp = LZW.decompress(LZW.convertCharToArray(window.atob(compText64)));
+        let decompFr = LZW.decompress(LZW.convertCharFrameToArray(window.atob(compText64Fr)));
+        //document.write(comp + '<br>' + decomp);
+
+        document.getElementById("demo").innerHTML = "<br><br>Decoded:   (length=" + decoded.length + ")<br>" + decoded +
+            "<br><br>Encoded:  (length=" + encoded.length + ")<br>" + encoded +
+            "<br><br>unique chars:  (length= " + allChars.length + ")<br>" + allChars +
+            "<br><br>comp: (length=" + comp.length + ")<br>" + comp +
+            "<br><br>compText: (length=" + compText.length + ")<br>" + compText +
+            "<br><br>compText64: (length=" + compText64.length + ")<br>" + compText64 +
+            "<br><br>compText64Fr: (length=" + compText64Fr.length + ")<br>" + compText64Fr +
+            "<br><br> recover original array: " + LZW.convertCharToArray(window.atob(compText64)) +
+            "<br><br> recover original array from Frame: " + LZW.convertCharFrameToArray(window.atob(compText64Fr)) +
+            "<br><br>decomp: (length=" + decomp.length + ")<br>" + decomp;
+    </script>
+
+</body>
+
+</html>
