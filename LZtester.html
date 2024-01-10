@@ -31,12 +31,12 @@
                     startDict = LZW.getUniqueSortedCharacters(uncompressed);
                     dictSize = startDict.length;
                     for (i = 0; i < startDict.length; i += 1) {
-                        dictionary[startDict[i]] = i;
+                        dictionary[startDict[i]] = [i, 0];
                         startDictCodes.push(startDict[i].charCodeAt(0));
                     }
                 } else
                     for (i = 0; i < dictSize; i += 1) {
-                        dictionary[String.fromCharCode(i)] = i;
+                        dictionary[String.fromCharCode(i)] = [i, 0];
                     }
 
                 for (i = 0; i < uncompressed.length; i += 1) {
@@ -48,11 +48,11 @@
                     if (dictionary.hasOwnProperty(wc)) {
                         w = wc;
                     } else {
-                        result.push(dictionary[w]);
+                        result.push(dictionary[w][0]);
                         dictFreq[w] = (dictFreq[w] || 0) + 1;
                         // Add wc to the dictionary.
-                        dictionary[wc] = dictSize++;
-                        console.info("compress: i=" + i + "  Output: " + dictionary[w] +
+                        dictionary[wc] = [dictSize++, 1, i];
+                        console.info("compress: i=" + i + "  Input: '" + c + "'  Output: " + dictionary[w] +
                             " WC:" + wc + " dictSize=" + dictSize +
                             " dictFreq[w]=" + dictFreq[w]);
                         w = String(c);
@@ -66,7 +66,7 @@
                 if (myDict) {
                     const lengths = [startDictCodes.length >> 8, startDictCodes.length & 0x00ff];
                     const preamble = lengths.concat(startDictCodes);
-                    console.log(dictFreq)
+                    console.log(dictionary)
                     return preamble.concat(result);
                 } else {
                     return [0, 0].concat(result);
@@ -238,16 +238,16 @@
         let decompFr = LZW.decompress(LZW.convertCharFrameToArray(window.atob(compText64Fr)));
         //document.write(comp + '<br>' + decomp);
 
-        document.getElementById("demo").innerHTML = "<br><br>Decoded:   (length=" + decoded.length + ")<br>" + decoded +
+        document.getElementById("demo").innerHTML = "<tt><br><br>Decoded:   (length=" + decoded.length + ")<br>" + decoded +
             "<br><br>Encoded:  (length=" + encoded.length + ")<br>" + encoded +
             "<br><br>unique chars:  (length= " + allChars.length + ")<br>" + allChars +
-            "<br><br>comp: (length=" + comp.length + ")<br>" + comp +
-            "<br><br>compText: (length=" + compText.length + ")<br>" + compText +
-            "<br><br>compText64: (length=" + compText64.length + ")<br>" + compText64 +
-            "<br><br>compText64Fr: (length=" + compText64Fr.length + ")<br>" + compText64Fr +
-            "<br><br> recover original array: " + LZW.convertCharToArray(window.atob(compText64)) +
-            "<br><br> recover original array from Frame: " + LZW.convertCharFrameToArray(window.atob(compText64Fr)) +
-            "<br><br>decomp: (length=" + decomp.length + ")<br>" + decomp;
+            "<br><br>compressed (as int array): (length=" + comp.length + ")<br>" + comp +
+            "<br><br>compressed (as char): (length=" + compText.length + ")<br>'" + compText + "'" +
+            "<br><br>compressed as base64 text: (length=" + compText64.length + ")<br>" + compText64 +
+            "<br><br>compressed & framed as base64 text: (length=" + compText64Fr.length + ")<br>" + compText64Fr +
+            "<br><br> recover original array from base64: <br>" + LZW.convertCharToArray(window.atob(compText64)) +
+            "<br><br> recover original array from Frame+base64: <br>" + LZW.convertCharFrameToArray(window.atob(compText64Fr)) +
+            "<br><br>decomp: (length=" + decomp.length + ")<br>" + decomp + "</tt>";
     </script>
 
 </body>
